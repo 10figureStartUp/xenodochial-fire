@@ -7,7 +7,10 @@ import {
   Paper,
   LinearProgress,
   InputAdornment,
+  Checkbox,
+  IconButton,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 
 const initialMeal = (id) => ({
   id,
@@ -17,6 +20,7 @@ const initialMeal = (id) => ({
   carbs: "",
   protein: "",
   calories: "",
+  eaten: false,
 });
 
 const dailyGoals = {
@@ -52,18 +56,31 @@ export default function Home() {
     );
   };
 
+  const handleCheckboxChange = (id) => {
+    setMeals((prevMeals) =>
+      prevMeals.map((meal) =>
+        meal.id === id ? { ...meal, eaten: !meal.eaten } : meal,
+      ),
+    );
+  };
+
   const addMeal = () => {
     const nextId = meals.length + 1;
     setMeals((prevMeals) => [...prevMeals, initialMeal(nextId)]);
     setCollapsed((prev) => ({ ...prev, [nextId]: false }));
   };
 
+  const deleteMeal = (id) => {
+    setMeals((prevMeals) => prevMeals.filter((meal) => meal.id !== id));
+  };
+
   const totalCalories = meals.reduce(
-    (sum, meal) => sum + Number(meal.calories || 0),
+    (sum, meal) => sum + (meal.eaten ? Number(meal.calories || 0) : 0),
     0,
   );
+
   const totalProtein = meals.reduce(
-    (sum, meal) => sum + Number(meal.protein || 0),
+    (sum, meal) => sum + (meal.eaten ? Number(meal.protein || 0) : 0),
     0,
   );
 
@@ -81,7 +98,6 @@ export default function Home() {
       >
         Intentional Eating
       </Typography>
-
       <Typography variant="subtitle1">{currentDate}</Typography>
       <Box sx={{ my: 2 }}>
         <Typography variant="body1">
@@ -140,6 +156,11 @@ export default function Home() {
                 sx={{ ml: 1 }}
               />
             </Typography>
+            {collapsed[meal.id] && (
+              <IconButton onClick={() => deleteMeal(meal.id)} size="small">
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            )}
           </Box>
           {!collapsed[meal.id] && (
             <>
@@ -200,6 +221,14 @@ export default function Home() {
                     ),
                   )}
                 </Box>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", mt: 2 }}>
+                <Typography>Eaten:</Typography>
+                <Checkbox
+                  checked={meal.eaten}
+                  onChange={() => handleCheckboxChange(meal.id)}
+                  sx={{ ml: 1 }}
+                />
               </Box>
             </>
           )}
