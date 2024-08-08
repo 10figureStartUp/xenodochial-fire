@@ -18,6 +18,8 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { db } from "../firebase";
 import AuthComponent from "../components/AuthComponent";
+import SurveyModal from "../components/SurveyModal";
+import GoalSettingModal from "../components/GoalSettingModal";
 
 const initialMeal = (id) => ({
   id,
@@ -29,11 +31,6 @@ const initialMeal = (id) => ({
   calories: "",
   eaten: false,
 });
-
-const dailyGoals = {
-  calories: 2500,
-  protein: 140,
-};
 
 const getCurrentDate = () => {
   const today = new Date();
@@ -52,6 +49,10 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [mounted, setMounted] = useState(false);
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [calorieGoal, setCalorieGoal] = useState(0);
+  const [proteinGoal, setProteinGoal] = useState(0);
   const auth = getAuth();
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function Home() {
     onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        fetchUserGoals(currentUser.uid);
         fetchMeals(currentUser.uid, dateString);
       } else {
         setUser(null);
@@ -68,6 +70,32 @@ export default function Home() {
       }
     });
   }, []);
+
+  const fetchUserGoals = async (uid) => {
+    const docRef = doc(db, "users", uid);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      setCalorieGoal(data.calorieGoal || 0);
+      setProteinGoal(data.proteinGoal || 0);
+      if (data.calorieGoal === 0 || data.proteinGoal === 0) {
+        setSurveyOpen(true);
+      }
+    } else {
+      setSurveyOpen(true);
+    }
+  };
+
+  const saveUserGoals = async (calories, protein) => {
+    if (user) {
+      await setDoc(doc(db, "users", user.uid), {
+        calorieGoal: calories,
+        proteinGoal: protein,
+      });
+      setCalorieGoal(calories);
+      setProteinGoal(protein);
+    }
+  };
 
   const fetchMeals = async (uid, date) => {
     const docRef = doc(db, "meals", `${uid}_${date}`);
@@ -161,6 +189,11 @@ export default function Home() {
     }
   };
 
+  const handleOpenGoalModal = () => {
+    setGoalModalOpen(true);
+    handleMenuClose();
+  };
+
   if (!mounted) {
     return null;
   }
@@ -204,16 +237,17 @@ export default function Home() {
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
           >
+            <MenuItem onClick={handleOpenGoalModal}>Goals</MenuItem>
             <MenuItem onClick={handleSignOut}>Logout</MenuItem>
           </Menu>
           <Typography variant="subtitle1">{currentDate}</Typography>
           <Box sx={{ my: 2 }}>
             <Typography variant="body1">
-              Calories: {totalCalories} / {dailyGoals.calories}
+              Calories: {totalCalories} / {calorieGoal}
             </Typography>
             <LinearProgress
               variant="determinate"
-              value={(totalCalories / dailyGoals.calories) * 100}
+              value={Math.min((totalCalories / calorieGoal) * 100, 100)}
               sx={{
                 height: 10,
                 borderRadius: 1,
@@ -224,11 +258,11 @@ export default function Home() {
           </Box>
           <Box sx={{ my: 2 }}>
             <Typography variant="body1">
-              Protein: {totalProtein} / {dailyGoals.protein}
+              Protein: {totalProtein} / {proteinGoal}
             </Typography>
             <LinearProgress
               variant="determinate"
-              value={(totalProtein / dailyGoals.protein) * 100}
+              value={Math.min((totalProtein / proteinGoal) * 100, 100)}
               sx={{
                 height: 10,
                 borderRadius: 1,
@@ -380,6 +414,18 @@ export default function Home() {
       ) : (
         <AuthComponent onUserChange={setUser} />
       )}
+      <SurveyModal
+        open={surveyOpen}
+        onClose={() => setSurveyOpen(false)}
+        onSaveGoals={saveUserGoals}
+      />
+      <GoalSettingModal
+        open={goalModalOpen}
+        onClose={() => setGoalModalOpen(false)}
+        onSaveGoals={saveUserGoals}
+        currentCalories={calorieGoal}
+        currentProtein={proteinGoal}
+      />
     </Box>
   );
 }

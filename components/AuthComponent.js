@@ -5,8 +5,9 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { Box, Button, Typography, TextField } from "@mui/material";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 
 const AuthComponent = ({ onUserChange }) => {
   const [email, setEmail] = useState("");
@@ -26,7 +27,16 @@ const AuthComponent = ({ onUserChange }) => {
 
   const handleSignUp = async () => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const user = userCredential.user;
+      await setDoc(doc(db, "users", user.uid), {
+        calorieGoal: 0,
+        proteinGoal: 0,
+      });
       alert("User created successfully");
     } catch (error) {
       alert(error.message);
