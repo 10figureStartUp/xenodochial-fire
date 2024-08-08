@@ -12,14 +12,16 @@ import {
   Menu,
   MenuItem,
   Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { db } from "../firebase";
 import AuthComponent from "../components/AuthComponent";
-import SurveyModal from "../components/SurveyModal";
-import GoalSettingModal from "../components/GoalSettingModal";
 
 const initialMeal = (id) => ({
   id,
@@ -49,10 +51,11 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [mounted, setMounted] = useState(false);
-  const [surveyOpen, setSurveyOpen] = useState(false);
-  const [goalModalOpen, setGoalModalOpen] = useState(false);
-  const [calorieGoal, setCalorieGoal] = useState(0);
-  const [proteinGoal, setProteinGoal] = useState(0);
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [surveyStep, setSurveyStep] = useState(1);
+  const [calorieGoal, setCalorieGoal] = useState("");
+  const [proteinGoal, setProteinGoal] = useState("");
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
   const auth = getAuth();
 
   useEffect(() => {
@@ -62,40 +65,14 @@ export default function Home() {
     onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        fetchUserGoals(currentUser.uid);
         fetchMeals(currentUser.uid, dateString);
+        checkGoals(currentUser.uid);
       } else {
         setUser(null);
         setMeals([]);
       }
     });
   }, []);
-
-  const fetchUserGoals = async (uid) => {
-    const docRef = doc(db, "users", uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      setCalorieGoal(data.calorieGoal || 0);
-      setProteinGoal(data.proteinGoal || 0);
-      if (data.calorieGoal === 0 || data.proteinGoal === 0) {
-        setSurveyOpen(true);
-      }
-    } else {
-      setSurveyOpen(true);
-    }
-  };
-
-  const saveUserGoals = async (calories, protein) => {
-    if (user) {
-      await setDoc(doc(db, "users", user.uid), {
-        calorieGoal: calories,
-        proteinGoal: protein,
-      });
-      setCalorieGoal(calories);
-      setProteinGoal(protein);
-    }
-  };
 
   const fetchMeals = async (uid, date) => {
     const docRef = doc(db, "meals", `${uid}_${date}`);
@@ -114,11 +91,34 @@ export default function Home() {
     }
   };
 
+  const checkGoals = async (uid) => {
+    const docRef = doc(db, "goals", uid);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      setShowSurvey(true);
+      setSurveyStep(1);
+    } else {
+      const data = docSnap.data();
+      setCalorieGoal(data.calories);
+      setProteinGoal(data.protein);
+    }
+  };
+
   const saveMeals = async (updatedMeals) => {
     if (user) {
       await setDoc(doc(db, "meals", `${user.uid}_${currentDate}`), {
         meals: updatedMeals,
       });
+    }
+  };
+
+  const saveGoals = async () => {
+    if (user) {
+      await setDoc(doc(db, "goals", user.uid), {
+        calories: calorieGoal,
+        protein: proteinGoal,
+      });
+      setShowSurvey(false);
     }
   };
 
@@ -189,9 +189,9 @@ export default function Home() {
     }
   };
 
-  const handleOpenGoalModal = () => {
-    setGoalModalOpen(true);
-    handleMenuClose();
+  const handleGoalsUpdate = async () => {
+    await saveGoals();
+    setShowGoalsModal(false);
   };
 
   if (!mounted) {
@@ -237,7 +237,7 @@ export default function Home() {
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
           >
-            <MenuItem onClick={handleOpenGoalModal}>Goals</MenuItem>
+            <MenuItem onClick={() => setShowGoalsModal(true)}>Goals</MenuItem>
             <MenuItem onClick={handleSignOut}>Logout</MenuItem>
           </Menu>
           <Typography variant="subtitle1">{currentDate}</Typography>
@@ -414,18 +414,88 @@ export default function Home() {
       ) : (
         <AuthComponent onUserChange={setUser} />
       )}
-      <SurveyModal
-        open={surveyOpen}
-        onClose={() => setSurveyOpen(false)}
-        onSaveGoals={saveUserGoals}
-      />
-      <GoalSettingModal
-        open={goalModalOpen}
-        onClose={() => setGoalModalOpen(false)}
-        onSaveGoals={saveUserGoals}
-        currentCalories={calorieGoal}
-        currentProtein={proteinGoal}
-      />
+
+      <Dialog open={showSurvey} onClose={() => {}} disableEscapeKeyDown>
+        <DialogTitle>Welcome to Macro Tracker!</DialogTitle>
+        <DialogContent>
+          {surveyStep === 1 && (
+            <>
+              <Typography>
+                Please click the link below to find out your ideal macro goals:
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() =>
+                  window.open(
+                    "https://www.calculator.net/macro-calculator.html",
+                    "_blank",
+                  )
+                }
+                sx={{ mt: 2 }}
+              >
+                Go to Macro Calculator
+              </Button>
+            </>
+          )}
+          {surveyStep === 2 && (
+            <>
+              <Typography>Daily Calorie Goal</Typography>
+              <TextField
+                value={calorieGoal}
+                onChange={(e) => setCalorieGoal(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+              />
+              <Typography>Daily Protein Goal</Typography>
+              <TextField
+                value={proteinGoal}
+                onChange={(e) => setProteinGoal(e.target.value)}
+                fullWidth
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {surveyStep === 1 ? (
+            <Button onClick={() => setSurveyStep(2)}>Continue</Button>
+          ) : (
+            <Button onClick={saveGoals}>Save Goals</Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
+        disableEscapeKeyDown
+      >
+        <DialogTitle>Update Your Goals</DialogTitle>
+        <DialogContent>
+          <Typography>Daily Calorie Goal</Typography>
+          <TextField
+            value={calorieGoal}
+            onChange={(e) => setCalorieGoal(e.target.value)}
+            fullWidth
+            sx={{ mb: 2 }}
+          />
+          <Typography>Daily Protein Goal</Typography>
+          <TextField
+            value={proteinGoal}
+            onChange={(e) => setProteinGoal(e.target.value)}
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleGoalsUpdate}>Update & Save</Button>
+          <IconButton
+            onClick={() => setShowGoalsModal(false)}
+            sx={{ position: "absolute", top: 8, right: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

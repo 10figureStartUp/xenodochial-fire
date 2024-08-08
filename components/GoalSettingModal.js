@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+// components/GoalSettingModal.js
+import { useState, useEffect } from "react";
 import {
-  Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Button,
   Typography,
   TextField,
-  Modal,
   IconButton,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
@@ -16,70 +19,50 @@ const GoalSettingModal = ({
   currentCalories,
   currentProtein,
 }) => {
-  const [calories, setCalories] = useState(currentCalories);
-  const [protein, setProtein] = useState(currentProtein);
+  const [calorieGoal, setCalorieGoal] = useState(currentCalories);
+  const [proteinGoal, setProteinGoal] = useState(currentProtein);
+
+  useEffect(() => {
+    setCalorieGoal(currentCalories);
+    setProteinGoal(currentProtein);
+  }, [currentCalories, currentProtein]);
 
   const handleSave = () => {
-    onSaveGoals(calories, protein);
+    onSaveGoals(calorieGoal, proteinGoal);
     onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose}>
-      <Box sx={{ ...modalStyle }}>
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>
+        Update Your Goals
         <IconButton
           onClick={onClose}
           sx={{ position: "absolute", top: 8, right: 8 }}
         >
           <CloseIcon />
         </IconButton>
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>
-          Update Your Daily Goals
-        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <Typography>Daily Calorie Goal</Typography>
         <TextField
-          label="Daily Calorie Goal"
-          value={calories}
-          onChange={(e) => setCalories(e.target.value)}
+          value={calorieGoal}
+          onChange={(e) => setCalorieGoal(e.target.value)}
           fullWidth
           sx={{ mb: 2 }}
         />
+        <Typography>Daily Protein Goal</Typography>
         <TextField
-          label="Daily Protein Goal"
-          value={protein}
-          onChange={(e) => setProtein(e.target.value)}
+          value={proteinGoal}
+          onChange={(e) => setProteinGoal(e.target.value)}
           fullWidth
-          sx={{ mb: 4 }}
         />
-        <Button
-          onClick={handleSave}
-          sx={{
-            backgroundColor: "black",
-            color: "white",
-            "&:hover": { backgroundColor: "darkgray" },
-            fontWeight: "bold",
-            padding: "10px 20px",
-            borderRadius: "8px",
-            textTransform: "none",
-          }}
-        >
-          Update & Save
-        </Button>
-      </Box>
-    </Modal>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleSave}>Update & Save</Button>
+      </DialogActions>
+    </Dialog>
   );
-};
-
-const modalStyle = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  width: 400,
-  bgcolor: "background.paper",
-  border: "2px solid #000",
-  boxShadow: 24,
-  borderRadius: "8px",
-  p: 4,
 };
 
 export default GoalSettingModal;
